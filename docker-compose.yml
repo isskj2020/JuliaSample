@@ -1,0 +1,22 @@
+version: '3.9'
+
+services:
+  db:
+    image: mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: testdb
+      MYSQL_TCP_PORT: 3007
+    volumes:
+      - ./mysql/:/docker-entrypoint-initdb.d
+      - ./mysql/conf.d/:/etc/mysql/conf.d/
+    ports:
+      - 9000:3007
+
+  phpmyadmin:
+    image: phpmyadmin
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3007
+    ports:
+      - 9001:80

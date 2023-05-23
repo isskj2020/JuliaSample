@@ -1,2 +1,3 @@
 # JuliaSample
-Julia sample project
+
+This is mock, memo, and tutorial projects for my own.
