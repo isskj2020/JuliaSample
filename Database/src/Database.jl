@@ -1,36 +1,42 @@
 module Database
 
-using MySQL, JSON3, JSONTables, Tables
+using JSON3, JSONTables, Tables, Nettle
 
-include("resources/Users.jl")
-include("resources/HmacKeys.jl")
-
-function createSample()
-    conn = DBInterface.connect(MySQL.Connection, "127.0.0.1", "root", "root"; db="testdb", port=9000, protocol=MySQL.API.MYSQL_PROTOCOL_TCP)
+include("deps.jl")
 
 
-    HmacKeys.loadSample(conn)
-    hmac = first(HmacKeys.fetchKey(conn, "sha256"))
+function test_hmac_auth()
+    conn = db_connect()
 
-    Users.loadSample(conn, hmac)
+    db_exec(conn, "DELETE FROM hmac_keys")
+    db_exec(conn, "DELETE FROM users")
 
-    user = Users.register(
-        conn, 
-        id = "test id",
-        hmac = HmacKeys.hmacDigest(hmac, "test"),
-        name = "test user",
-        age = 70
+    hmac = HmacKey(
+        key = randstring(32),
+        algorithm = "sha256"
+    )
+    create(conn, hmac)
+
+    hmac = fetch_hmac_key(conn, algorithm = "sha256")
+    @show hmac
+
+    auth_register(conn,
+        user = User(
+            id = "test_id",
+            hmac = hexdigest(hmac.algorithm, hmac.key, "test"),
+            name = "test user",
+            age = 70
+        )
     )
 
-    user = Users.login(conn,
-         id = "test id",
-         hmac = HmacKeys.hmacDigest(hmac, "test")
+    user = auth_login(conn,
+        id = "test_id",
+        hmac = hexdigest(hmac.algorithm, hmac.key, "test")
     )
+    @show user
 
-    # dataframe first row to json
-    json = user |> rowtable |> x -> JSON3.write(first(x))
-    @show json
+    json = JSON3.write(user)
 
 end
 
-end # module Database
+end # module root

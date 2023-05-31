@@ -1,46 +1,23 @@
-module Users
+using Parameters, DataFrames, Random, TimeZones
 
-using MySQL, DataFrames, Random, TimeZones, Nettle
-
-const tableName = "users"
-
-function loadSample(conn, hmac)
-    DBInterface.execute(conn, "drop table if exists $tableName")
-    try
-        MySQL.load(createSample(hmac), conn, tableName)
-    catch
-    end
+@with_kw mutable struct User
+    id::String = randstring(32)
+    hmac::String
+    name::String
+    age::Int64
+    updated_at::String = string(now(localzone()))
 end
 
-function register(conn; id, hmac, name, age)
-    stmt = DBInterface.prepare(conn, "insert into $tableName values(?, ?, ?, ?, ?)")
-    DBInterface.execute(stmt, [ id, hmac, name, age, string(now(localzone())) ])
-end
-
-function login(conn; id, hmac)
-    stmt = DBInterface.prepare(conn, "select * from users where id = ? and hmac = ?")
-    try 
-        return DataFrame(DBInterface.execute(stmt, [ id, hmac ]))
-    catch e
-        @warn "record not found", e
-        return Nothing
-    end
-end
-
-
-function createSample(hmac)
-    users = map(x -> "User #$x", 1:10)
-    ids = map(x -> randstring(32), users)
-    df = DataFrame(
-        id = ids,
-        hmac = map(x -> hexdigest(hmac.algorithm, hmac.key, x), ids),
-        name = map(x -> x, users),
-        age = map(x -> rand(18:65), users),
-        created_at = map(x -> string(now(localzone())), users)
+function User(row::DataFrameRow)
+    return User(
+        id = row.id,
+        hmac = row.hmac,
+        name = row.name,
+        age = row.age,
+        updated_at = row.updated_at
     )
-    return df
 end
 
+create(conn, obj::User) = db_insert(conn, DataFrame([ obj ]), "users")
+delete(conn, obj::User) = db_delete(conn, "users", obj.id)
 
-
-end # module root
